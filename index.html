@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Cetak Dokumen</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				margin: 20px auto;
+				max-width: 1000px;
+			}
+			table {
+				border-collapse: collapse;
+				width: 100%;
+			}
+			table,
+			th,
+			td {
+				border: 1px solid #ccc;
+			}
+			th,
+			td {
+				padding: 8px;
+				vertical-align: top;
+				word-wrap: break-word;
+				text-align: left;
+			}
+			table th:first-child,
+			table td:first-child {
+				width: 180px;
+				padding-right: 5px;
+				white-space: nowrap;
+			}
+			table th:last-child,
+			table td:last-child {
+				width: auto;
+				padding-left: 5px;
+			}
+			textarea,
+			input,
+			select,
+			button {
+				font-size: 14px;
+				padding: 6px;
+				width: 100%;
+				box-sizing: border-box;
+				font-family: Arial, sans-serif;
+				border: 1px solid #999;
+				border-radius: 3px;
+				resize: vertical;
+			}
+			textarea {
+				min-height: 50px;
+			}
+			.section {
+				margin-bottom: 20px;
+			}
+			.btn-group {
+				margin-top: 10px;
+				text-align: center;
+			}
+			.btn-group button,
+			.btn-group input {
+				width: auto;
+				padding: 10px 20px;
+				margin: 0 5px;
+				font-size: 16px;
+				cursor: pointer;
+			}
+			.section label {
+				display: inline-block;
+				margin-bottom: 6px;
+				font-weight: bold;
+			}
+			.section select,
+			.section textarea {
+				margin-bottom: 15px;
+			}
+			table tr:nth-child(even) {
+				background-color: #f9f9f9;
+			}
+			table tr:nth-child(odd) {
+				background-color: #ffffff;
+			}
+			table th {
+				background-color: #eaeaea;
+			}
+			.copy-btn {
+				width: auto !important;      /* override width global */
+				padding: 4px 10px;           /* ukuran kecil */
+				font-size: 13px;
+				border: 1px solid #999;
+				border-radius: 3px;
+				background-color: #eee;
+				cursor: pointer;
+			}
+				.copy-btn:hover {
+				background-color: #ddd;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="section">
+			<!-- Label + tombol sejajar -->
+			<div style="display: flex; align-items: center;">
+				<label for="jsonInput" style="margin: 0;">Masukkan Data:</label>
+				<button class="copy-btn" onclick="copyCode()" style="margin-left: 5px;">Salin</button>
+			</div>
+
+			<!-- Textarea di bawah -->
+			<textarea id="jsonInput" style="margin-top: 6px;"></textarea>
+
+			<br /><br />
+
+			<div style="display: flex; gap: 20px">
+				<div style="flex: 1">
+				<label for="kategoriSelect">Pilih Kategori:</label>
+				<select id="kategoriSelect">
+					<option value="">-- Pilih Kategori --</option>
+					<option value="ceraiGugat">Cerai Gugat</option>
+					<option value="ceraiTalak">Cerai Talak</option>
+				</select>
+				</div>
+				<div style="flex: 1">
+				<label for="templateSelect">Pilih Template:</label>
+				<select id="templateSelect" disabled>
+					<option value="">-- Pilih Template --</option>
+				</select>
+				</div>
+			</div>
+
+			<br />
+			<button id="btnTampilkan" style="width: 100%">Tampilkan Dokumen</button>
+		</div>
+
+		<div class="section" id="dataTableSection" style="display: none">
+			<div id="tabelContainer"></div>
+			<div class="btn-group" id="btnGroup" style="display: none">
+				<button id="btnCetak">Cetak</button>
+			</div>
+		</div>
+
+		<script>
+			const kategoriSelect = document.getElementById('kategoriSelect');
+			const templateSelect = document.getElementById('templateSelect');
+			const tabelContainer = document.getElementById('tabelContainer');
+			const btnGroup = document.getElementById('btnGroup');
+			const jsonLinkInput = document.getElementById('jsonInput');
+
+			// daftar template per kategori
+			const templates = {
+				ceraiGugat: [
+					'CG V BAIN (B) 2025',
+					'CG V BAIN (B) GHAIB 2025',
+					'CG V BAIN (F) 2025',
+					'CG V BAIN (F) GHAIB 2025',
+					'CG V TAKLIK (G) 2025',
+					'CG V TAKLIK (G) GHAIB 2025',
+					'CG CONTRA (F) 2025',
+				],
+				ceraiTalak: ['CT V (B) 2025', 'CT V (B) GHAIB 2025', 'CT V (F) 2025', 'CT V (F) GHAIB 2025', 'CT CONTRA (F) 2025', 'CT V (B) MUTAH 2025', 'CT V (F) MUTAH 2025'],
+			};
+
+			// mapping template → file RTF
+			const templateFiles = {
+				'CG V BAIN (B) 2025': 'CG_V_BAIN_B_2025.rtf',
+				'CG V BAIN (B) GHAIB 2025': 'CG_V_BAIN_B_GHAIB_2025.rtf',
+				'CG V BAIN (F) 2025': 'CG_V_BAIN_F_2025.rtf',
+				'CG V BAIN (F) GHAIB 2025': 'CG_V_BAIN_F_GHAIB_2025.rtf',
+				'CG V TAKLIK (G) 2025': 'CG_V_TAKLIK_G_2025.rtf',
+				'CG V TAKLIK (G) GHAIB 2025': 'CG_V_TAKLIK_G_GHAIB_2025.rtf',
+				'CG CONTRA (F) 2025': 'CG_CONTRA_F_2025.rtf',
+				'CT V (B) 2025': 'CT_V_B_2025.rtf',
+				'CT V (B) GHAIB 2025': 'CT_V_B_GHAIB_2025.rtf',
+				'CT V (F) 2025': 'CT_V_F_2025.rtf',
+				'CT V (F) GHAIB 2025': 'CT_V_F_GHAIB_2025.rtf',
+				'CT CONTRA (F) 2025': 'CT_CONTRA_F_2025.rtf',
+				'CT V (B) MUTAH 2025': 'CT_V_B_MUTAH_2025.rtf',
+				'CT V (F) MUTAH 2025': 'CT_V_F_MUTAH_2025.rtf',
+			};
+
+			// skeleton tabel HTML lengkap per template
+			const tabelTemplates = {
+				'CG V BAIN (B) 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Penggugat</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Tergugat</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Surat Gugatan</td><td><input type="text" id="1062" /></td></tr>
+                    <tr><td>Gugatan / Permohonan</td><td><input type="text" id="0053" /></td></tr>
+                    <tr><td>Nama Pengadilan</td><td><input type="text" id="0000" /></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Penggugat didampingi Kuasanya">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Penggugat">
+                                <option value="orang tua Tergugat">
+                                <option value="Penggugat">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Penggugat">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Tergugat">
+                                <option value="Penggugat">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Penggugat">
+                                <option value="Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                                <option value="Penggugat dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CG V BAIN (B) GHAIB 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Penggugat</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Tergugat</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Surat Gugatan</td><td><input type="text" id="1062" /></td></tr>
+                    <tr><td>Gugatan / Permohonan</td><td><input type="text" id="0053" /></td></tr>
+                    <tr><td>Nama Pengadilan</td><td><input type="text" id="0000" /></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Penggugat didampingi Kuasanya">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Penggugat">
+                                <option value="orang tua Tergugat">
+                                <option value="Penggugat">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Penggugat">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                                <option value="Penggugat dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CG V BAIN (F) 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Penggugat</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Tergugat</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Surat Gugatan</td><td><input type="text" id="1062" /></td></tr>
+                    <tr><td>Gugatan / Permohonan</td><td><input type="text" id="0053" /></td></tr>
+                    <tr><td>Nama Pengadilan</td><td><input type="text" id="0000" /></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Penggugat didampingi Kuasanya">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Penggugat">
+                                <option value="orang tua Tergugat">
+                                <option value="Penggugat">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Penggugat">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Tergugat">
+                                <option value="Penggugat">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Penggugat">
+                                <option value="Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                                <option value="Penggugat dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CG V BAIN (F) GHAIB 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Penggugat</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Tergugat</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Surat Gugatan</td><td><input type="text" id="1062" /></td></tr>
+                    <tr><td>Gugatan / Permohonan</td><td><input type="text" id="0053" /></td></tr>
+                    <tr><td>Nama Pengadilan</td><td><input type="text" id="0000" /></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Penggugat didampingi Kuasanya">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Penggugat">
+                                <option value="orang tua Tergugat">
+                                <option value="Penggugat">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Penggugat">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Tergugat">
+                                <option value="Penggugat">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Penggugat">
+                                <option value="Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                                <option value="Penggugat dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CG V TAKLIK (G) 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Penggugat</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Tergugat</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Surat Gugatan</td><td><input type="text" id="1062" /></td></tr>
+                    <tr><td>Nama Pengadilan</td><td><input type="text" id="0000" /></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Penggugat didampingi Kuasanya">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Penggugat">
+                                <option value="orang tua Tergugat">
+                                <option value="Penggugat">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Penggugat">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                                <option value="Penggugat dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CG V TAKLIK (G) GHAIB 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Penggugat</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Tergugat</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Surat Gugatan</td><td><input type="text" id="1062" /></td></tr>
+                    <tr><td>Nama Pengadilan</td><td><input type="text" id="0000" /></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Penggugat didampingi Kuasanya">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Penggugat">
+                                <option value="orang tua Tergugat">
+                                <option value="Penggugat">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Penggugat">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Penggugat">
+                                <option value="Penggugat">
+                                <option value="Penggugat dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+				
+				'CG CONTRA (F) 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Nama Pengadilan</td><td><input type="text" id="0000" /></td></tr>
+                    <tr><td>Data Penggugat</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Tergugat</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Surat Gugatan</td><td><input type="text" id="1062" /></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr><td>Nama Mediator</td><td><input type="text" id="8013" /></td></tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr>
+                        <td>Saksi 1 Sebagai *</td>
+                        <td>
+                            <input type="text" id="2222" style="width:250px" />
+                            Nama Saksi 1 *
+                            <input type="text" id="6145" style="width:250px" />
+                        </td>
+                    </tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr>
+                        <td>Saksi 2 Sebagai *</td>
+                        <td>
+                            <input type="text" id="3333" style="width:250px" />
+                            Nama Saksi 2 *
+                            <input type="text" id="6146" style="width:250px" />
+                        </td>
+                    </tr>
+                    <tr><td>Gugatan / Permohonan</td><td><input type="text" id="0053" /></td></tr>
+                    <tr><td>P Sebagai</td><td><input type="text" id="0046" /></td></tr>
+                    <tr><td>T Sebagai</td><td><input type="text" id="0047" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Penggugat">
+                                <option value="orang tua Tergugat">
+                                <option value="Penggugat">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Penggugat">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Tergugat">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Tergugat">
+                                <option value="Penggugat">
+                            </datalist>
+                            telah pergi dari rumah tempat kediaman bersama *
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Bertengkar Sejak *</td>
+                        <td>
+                            <input type="text" id="6138" style="width:250px" />
+                            Pergi Sejak
+                            <input type="text" id="6128" style="width:250px" />
+                        </td>
+                    </tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CT V (B) 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Pemohon</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Termohon</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Pemohon didampingi Kuasanya">
+                                <option value="Kuasa Hukum Pemohon">
+                                <option value="Pemohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Pemohon">
+                                <option value="orang tua Termohon">
+                                <option value="Pemohon">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Pemohon">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Termohon">
+                                <option value="Pemohon">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Pemohon">
+                                <option value="Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Pemohon">
+                                <option value="Pemohon">
+                                <option value="Pemohon dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CT V (B) GHAIB 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Pemohon</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Termohon</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Pemohon didampingi Kuasanya">
+                                <option value="Kuasa Hukum Pemohon">
+                                <option value="Pemohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Pemohon">
+                                <option value="orang tua Termohon">
+                                <option value="Pemohon">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Pemohon">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Termohon">
+                                <option value="Pemohon">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Pemohon">
+                                <option value="Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Pemohon">
+                                <option value="Pemohon">
+                                <option value="Pemohon dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CT V (F) 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Pemohon</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Termohon</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Pemohon didampingi Kuasanya">
+                                <option value="Kuasa Hukum Pemohon">
+                                <option value="Pemohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Pemohon">
+                                <option value="orang tua Termohon">
+                                <option value="Pemohon">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Pemohon">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Termohon">
+                                <option value="Pemohon">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Pemohon">
+                                <option value="Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Pemohon">
+                                <option value="Pemohon">
+                                <option value="Pemohon dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+				
+				'CT V (F) GHAIB 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Pemohon</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Termohon</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Pemohon didampingi Kuasanya">
+                                <option value="Kuasa Hukum Pemohon">
+                                <option value="Pemohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Pemohon">
+                                <option value="orang tua Termohon">
+                                <option value="Pemohon">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Pemohon">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Termohon">
+                                <option value="Pemohon">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Pemohon">
+                                <option value="Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Pemohon">
+                                <option value="Pemohon">
+                                <option value="Pemohon dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				'CT CONTRA (F) 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Nama Pengadilan</td><td><input type="text" id="0000" /></td></tr>
+                    <tr><td>Data Pemohon</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Termohon</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Surat Gugatan</td><td><input type="text" id="1062" /></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr><td>Nama Mediator</td><td><input type="text" id="8013" /></td></tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr>
+                        <td>Saksi 1 Sebagai *</td>
+                        <td>
+                            <input type="text" id="2222" style="width:250px" />
+                            Nama Saksi 1 *
+                            <input type="text" id="6145" style="width:250px" />
+                        </td>
+                    </tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr>
+                        <td>Saksi 2 Sebagai *</td>
+                        <td>
+                            <input type="text" id="3333" style="width:250px" />
+                            Nama Saksi 2 *
+                            <input type="text" id="6146" style="width:250px" />
+                        </td>
+                    </tr>
+                    <tr><td>Gugatan / Permohonan</td><td><input type="text" id="0053" /></td></tr>
+                    <tr><td>P Sebagai</td><td><input type="text" id="0046" /></td></tr>
+                    <tr><td>T Sebagai</td><td><input type="text" id="0047" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Pemohon">
+                                <option value="orang tua Termohon">
+                                <option value="Pemohon">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Pemohon">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Termohon">
+                                <option value="Pemohon">
+                            </datalist>
+                            telah pergi dari rumah tempat kediaman bersama *
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Bertengkar Sejak *</td>
+                        <td>
+                            <input type="text" id="6138" style="width:250px" />
+                            Pergi Sejak
+                            <input type="text" id="6128" style="width:250px" />
+                        </td>
+                    </tr>
+                    <tr><td>Amar Putusan</td><td><textarea id="0065" rows="6"></textarea></td></tr>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+				
+				'CT V (B) MUTAH 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Pemohon</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Termohon</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Pemohon didampingi Kuasanya">
+                                <option value="Kuasa Hukum Pemohon">
+                                <option value="Pemohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Pemohon">
+                                <option value="orang tua Termohon">
+                                <option value="Pemohon">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Pemohon">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Termohon">
+                                <option value="Pemohon">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Pemohon">
+                                <option value="Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+					<tr>
+                        <td>Pertimbangan Hukum 1</td>
+                        <td>
+                            <select id="pilih_pertimbangan2" style="width:250px"
+                                onchange="document.getElementById('99999').value=this.value">
+                                <option value="">-- Pilih --</option>
+                                <option value="Bahwa permohonan Cerai Talak ini diajukan oleh Pemohon, maka Majelis Hakim secara ex officio menghukum Pemohon untuk memberikan mut’ah kepada Termohon berupa uang sejumlah Rp2.000.000,00,- (dua juta rupiah) yang dibayarkan sebelum pengucapan ikrar talak;">
+                                    Mut'ah
+                                </option>
+                                <option value="Bahwa Pemohon menyatakan sanggup memberikan mut'ah berupa uang kepada Termohon sejumlah Rp1.000.000,00 (satu juta rupiah) dan nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah selama 3 bulan sebelum pengucapan ikrar talak;">
+                                    Mut'ah dan Iddah
+                                </option>
+								<option value="Bahwa Pemohon menyatakan sanggup memberikan mut'ah berupa uang kepada Termohon sejumlah Rp1.000.000,00 (satu juta rupiah) sebelum pengucapan ikrar talak, serta nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah, dan nafkah untuk 1 orang anaknya sebesar Rp500.000,00 (lima ratus ribu rupiah) per bulan sampai anak tersebut dewasa atau menikah, dengan kenaikan 10% setiap tahun, di luar biaya pendidikan dan kesehatan;">
+                                    Mut'ah, Iddah, dan Nafkah Anak
+                                </option>
+                            </select>
+                            <br><br>
+                            <textarea id="99999" rows="6" style="width:750px;min-height:80px"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Pertimbangan Hukum 2</td>
+                        <td>
+                            <select id="pilih_pertimbangan1" style="width:250px"
+                                onchange="document.getElementById('9001').value=this.value">
+                                <option value="">-- Pilih --</option>
+                                <option value="Menimbang, bahwa berdasarkan Pasal 41 huruf c Undang-Undang Nomor 1 Tahun 1974 tentang Perkawinan jo Pasal 149 Kompilasi Hukum Islam, Majelis Hakim secara ex officio menghukum Pemohon untuk memberikan mut’ah kepada Termohon berupa uang sejumlah Rp2.000.000 (dua juta rupiah rupiah) yang dibayarkan sebelum pengucapan ikrar talak;">
+                                    Mut'ah
+                                </option>
+                                <option value="Menimbang, bahwa terhadap kesanggupan Pemohon memberikan mut'ah dan nafkah iddah berupa uang kepada Termohon, majelis hakim menghukum Pemohon untuk membayar mut'ah sebesar Rp1.000.000,00 (satu juta rupiah) dan nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) dengan total Rp2.500.000,00 (dua juta lima ratus ribu rupiah) sebelum pengucapan ikrar talak;">
+                                    Mut'ah dan Iddah
+                                </option>
+                                <option value="Menimbang, bahwa terhadap kesanggupan Pemohon memberikan mut'ah berupa uang kepada Termohon maka kesanggupan tersebut harus ditetapkan, dan majelis hakim menghukum Pemohon untuk membayar mut'ah kepada Termohon sejumlah Rp1.000.000,00 (satu juta rupiah) sebelum pengucapan ikrar talak, serta nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah, dan nafkah untuk 1 orang anaknya sebesar Rp500.000,00 (lima ratus ribu rupiah) per bulan sampai anak tersebut dewasa atau menikah, dengan kenaikan 10% setiap tahun, di luar biaya pendidikan dan kesehatan;">
+                                    Mut'ah, Iddah, dan Nafkah Anak
+                                </option>
+                            </select>
+                            <br><br>
+                            <textarea id="9001" rows="6" style="width:750px;min-height:80px"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Amar Putusan</td>
+                        <td>
+                            <select id="pilih_amar" onchange="append_amar()" style="max-width:350px">
+                            <option value="">-- Pilih Amar Putusan --</option>
+                            <option value="Menghukum Pemohon untuk membayar kepada Termohon mut'ah berupa uang sejumlah Rp2.000.000,- (dua juta rupiah) sebelum pengucapan ikrar talak;">Mut'ah</option>
+                            <option value="Menghukum Pemohon untuk membayar kepada Termohon sebelum pengucapan ikrar talak mut'ah berupa uang sebesar Rp1.000.000,00 (satu juta rupiah) dan nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah;">Mut'ah dan Iddah</option>
+                            <option value="Menghukum Pemohon untuk membayar kepada Termohon sebelum pengucapan ikrar talak berupa mut'ah berupa uang sebesar Rp1.000.000,00 (satu juta rupiah), nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah, dan nafkah untuk 1 orang anaknya sebesar Rp500.000,00 (lima ratus ribu rupiah) per bulan sampai anak tersebut dewasa atau telah menikah, dengan kenaikan 10% setiap tahun di luar biaya pendidikan dan kesehatan;">Mut'ah, Iddah, dan Nafkah Anak</option>
+                            </select>
+                            <br><br>
+                            <textarea id="0065" rows="8" style="width:750px;min-height:120px"></textarea>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Pemohon">
+                                <option value="Pemohon">
+                                <option value="Pemohon dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+				
+				'CT V (F) MUTAH 2025': `
+                <table>
+                    <tr><th>Keterangan</th><th>Data</th></tr>
+                    <tr><td>Nomor Perkara</td><td><input type="text" id="0001" /></td></tr>
+                    <tr><td>Data Pemohon</td><td><textarea id="9800"></textarea></td></tr>
+                    <tr><td>Data Termohon</td><td><textarea id="9801"></textarea></td></tr>
+                    <tr><td>Tgl Pendaftaran</td><td><input type="text" id="1061" /></td></tr>
+                    <tr><td>Posita Lengkap</td><td><textarea id="10001" rows="8"></textarea></td></tr>
+                    <tr><td>Petitum</td><td><textarea id="1359" rows="6"></textarea></td></tr>
+                    <tr>
+                        <td>Menghadap Sidang *</td>
+                        <td>
+                            <input list="menghadap_sidang" id="1111" name="1111" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="menghadap_sidang">
+                                <option value="Pemohon didampingi Kuasanya">
+                                <option value="Kuasa Hukum Pemohon">
+                                <option value="Pemohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Alat Bukti Surat</td><td><textarea id="1214" rows="6"></textarea></td></tr>
+                    <tr><td>Identitas Saksi 1</td><td><textarea id="0517" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 1 Sebagai *</td><td><input type="text" id="2222" style="width:250px" /></td></tr>
+                    <tr><td>Lama Pisah</td><td><input type="text" id="9016" /></td></tr>
+                    <tr><td>Sebab Konflik</td><td><input type="text" id="0004" /></td></tr>
+                    <tr><td>Identitas Saksi 2</td><td><textarea id="0518" rows="4"></textarea></td></tr>
+                    <tr><td>Saksi 2 Sebagai *</td><td><input type="text" id="3333" style="width:250px" /></td></tr>
+                    <tr>
+                        <td>Terakhir di Rumah *</td>
+                        <td>
+                            <input list="tempat_terakhir" id="4444" name="4444" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="tempat_terakhir">
+                                <option value="orang tua Pemohon">
+                                <option value="orang tua Termohon">
+                                <option value="Pemohon">
+                                <option value="bersama">
+                                <option value="kontrakan">
+                            </datalist>
+                            dan
+                            <input list="status_anak" id="5555" name="5555" style="width:450px" placeholder="Pilih atau tulis...">
+                            <datalist id="status_anak">
+                                <option value="belum dikaruniai anak">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Pemohon">
+                                <option value="telah dikaruniai 1 (satu) orang anak dalam asuhan Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td>
+                            <input list="siapa_pergi" id="6666" name="6666" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_pergi">
+                                <option value="Termohon">
+                                <option value="Pemohon">
+                            </datalist>
+                            yang pergi meninggalkan *
+                            <input list="siapa_ditinggalkan" id="7777" name="7777" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="siapa_ditinggalkan">
+                                <option value="Pemohon">
+                                <option value="Termohon">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>KUA Kecamatan *</td>
+                        <td>
+                            <input list="kecamatan_brebes" id="8888" name="8888" style="width:250px" placeholder="Pilih Kecamatan...">
+                            <datalist id="kecamatan_brebes">
+                                <option value="Banjarharjo">
+                                <option value="Bantarkawung">
+                                <option value="Brebes">
+                                <option value="Bulakamba">
+                                <option value="Bumiayu">
+                                <option value="Jatibarang">
+                                <option value="Kersana">
+                                <option value="Ketanggungan">
+                                <option value="Larangan">
+                                <option value="Losari">
+                                <option value="Paguyangan">
+                                <option value="Salem">
+                                <option value="Sirampog">
+                                <option value="Songgom">
+                                <option value="Tanjung">
+                                <option value="Tonjong">
+                                <option value="Wanasari">
+                            </datalist>
+                            Kabupaten
+                            <input list="kabupaten_brebes" id="9999" name="9999" style="width:250px" placeholder="Pilih Kabupaten...">
+                            <datalist id="kabupaten_brebes">
+                                <option value="Brebes">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Tgl Nikah</td><td><input type="text" id="1011" /></td></tr>
+					<tr>
+                        <td>Pertimbangan Hukum 1</td>
+                        <td>
+                            <select id="pilih_pertimbangan2" style="width:250px"
+                                onchange="document.getElementById('99999').value=this.value">
+                                <option value="">-- Pilih --</option>
+                                <option value="Bahwa permohonan Cerai Talak ini diajukan oleh Pemohon, maka Majelis Hakim secara ex officio menghukum Pemohon untuk memberikan mut’ah kepada Termohon berupa uang sejumlah Rp2.000.000,00,- (dua juta rupiah) yang dibayarkan sebelum pengucapan ikrar talak;">
+                                    Mut'ah
+                                </option>
+                                <option value="Bahwa Pemohon menyatakan sanggup memberikan mut'ah berupa uang kepada Termohon sejumlah Rp1.000.000,00 (satu juta rupiah) dan nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah selama 3 bulan sebelum pengucapan ikrar talak;">
+                                    Mut'ah dan Iddah
+                                </option>
+								<option value="Bahwa Pemohon menyatakan sanggup memberikan mut'ah berupa uang kepada Termohon sejumlah Rp1.000.000,00 (satu juta rupiah) sebelum pengucapan ikrar talak, serta nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah, dan nafkah untuk 1 orang anaknya sebesar Rp500.000,00 (lima ratus ribu rupiah) per bulan sampai anak tersebut dewasa atau menikah, dengan kenaikan 10% setiap tahun, di luar biaya pendidikan dan kesehatan;">
+                                    Mut'ah, Iddah, dan Nafkah Anak
+                                </option>
+                            </select>
+                            <br><br>
+                            <textarea id="99999" rows="6" style="width:750px;min-height:80px"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Pertimbangan Hukum 2</td>
+                        <td>
+                            <select id="pilih_pertimbangan1" style="width:250px"
+                                onchange="document.getElementById('9001').value=this.value">
+                                <option value="">-- Pilih --</option>
+                                <option value="Menimbang, bahwa berdasarkan Pasal 41 huruf c Undang-Undang Nomor 1 Tahun 1974 tentang Perkawinan jo Pasal 149 Kompilasi Hukum Islam, Majelis Hakim secara ex officio menghukum Pemohon untuk memberikan mut’ah kepada Termohon berupa uang sejumlah Rp2.000.000 (dua juta rupiah rupiah) yang dibayarkan sebelum pengucapan ikrar talak;">
+                                    Mut'ah
+                                </option>
+                                <option value="Menimbang, bahwa terhadap kesanggupan Pemohon memberikan mut'ah dan nafkah iddah berupa uang kepada Termohon, majelis hakim menghukum Pemohon untuk membayar mut'ah sebesar Rp1.000.000,00 (satu juta rupiah) dan nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) dengan total Rp2.500.000,00 (dua juta lima ratus ribu rupiah) sebelum pengucapan ikrar talak;">
+                                    Mut'ah dan Iddah
+                                </option>
+                                <option value="Menimbang, bahwa terhadap kesanggupan Pemohon memberikan mut'ah berupa uang kepada Termohon maka kesanggupan tersebut harus ditetapkan, dan majelis hakim menghukum Pemohon untuk membayar mut'ah kepada Termohon sejumlah Rp1.000.000,00 (satu juta rupiah) sebelum pengucapan ikrar talak, serta nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah, dan nafkah untuk 1 orang anaknya sebesar Rp500.000,00 (lima ratus ribu rupiah) per bulan sampai anak tersebut dewasa atau menikah, dengan kenaikan 10% setiap tahun, di luar biaya pendidikan dan kesehatan;">
+                                    Mut'ah, Iddah, dan Nafkah Anak
+                                </option>
+                            </select>
+                            <br><br>
+                            <textarea id="9001" rows="6" style="width:750px;min-height:80px"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Amar Putusan</td>
+                        <td>
+                            <select id="pilih_amar" onchange="append_amar()" style="max-width:350px">
+                            <option value="">-- Pilih Amar Putusan --</option>
+                            <option value="Menghukum Pemohon untuk membayar kepada Termohon mut'ah berupa uang sejumlah Rp2.000.000,- (dua juta rupiah) sebelum pengucapan ikrar talak;">Mut'ah</option>
+                            <option value="Menghukum Pemohon untuk membayar kepada Termohon sebelum pengucapan ikrar talak mut'ah berupa uang sebesar Rp1.000.000,00 (satu juta rupiah) dan nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah;">Mut'ah dan Iddah</option>
+                            <option value="Menghukum Pemohon untuk membayar kepada Termohon sebelum pengucapan ikrar talak berupa mut'ah berupa uang sebesar Rp1.000.000,00 (satu juta rupiah), nafkah iddah sebesar Rp1.500.000,00 (satu juta lima ratus ribu rupiah) untuk masa iddah, dan nafkah untuk 1 orang anaknya sebesar Rp500.000,00 (lima ratus ribu rupiah) per bulan sampai anak tersebut dewasa atau telah menikah, dengan kenaikan 10% setiap tahun di luar biaya pendidikan dan kesehatan;">Mut'ah, Iddah, dan Nafkah Anak</option>
+                            </select>
+                            <br><br>
+                            <textarea id="0065" rows="8" style="width:750px;min-height:120px"></textarea>
+                    <tr><td>Hari Putusan</td><td><input type="text" id="1216" /></td></tr>
+                    <tr><td>Tgl Putusan</td><td><input type="text" id="1069" /></td></tr>
+                    <tr><td>Tgl Hijriah Putusan</td><td><input type="text" id="0038" /></td></tr>
+                    <tr><td>Ketua Majelis</td><td><input type="text" id="0012" /></td></tr>
+                    <tr><td>Hakim Anggota 1</td><td><input type="text" id="0013" /></td></tr>
+                    <tr><td>Hakim Anggota 2</td><td><input type="text" id="0014" /></td></tr>
+                    <tr><td>Panitera Pengganti</td><td><input type="text" id="0015" /></td></tr>
+                    <tr>
+                        <td>Dihadiri oleh *</td>
+                        <td>
+                            <input list="dihadiri_oleh" id="1010" name="1010" style="width:250px" placeholder="Pilih atau tulis...">
+                            <datalist id="dihadiri_oleh">
+                                <option value="Kuasa Pemohon">
+                                <option value="Pemohon">
+                                <option value="Pemohon dan Kuasanya">
+                            </datalist>
+                        </td>
+                    </tr>
+                    <tr><td>Biaya Pemanggilan</td><td><input type="text" id="1091" /></td></tr>
+                    <tr><td>Total Biaya Perkara</td><td><input type="text" id="0143" /></td></tr>
+                    <tr><td>Terbilang Biaya Putus *</td><td><input type="text" id="1212" style="width:450px" /></td></tr>
+                </table>`,
+
+				// Lanjutkan untuk semua template lain...
+			};
+
+			// update template dropdown
+			function updateTemplateOptions(kategori) {
+				templateSelect.innerHTML = '<option value="">-- Pilih Template --</option>';
+				if (templates[kategori]) {
+					templates[kategori].forEach((tpl) => {
+						const option = document.createElement('option');
+						option.value = tpl;
+						option.textContent = tpl;
+						templateSelect.appendChild(option);
+					});
+					templateSelect.disabled = false;
+				} else {
+					templateSelect.disabled = true;
+				}
+			}
+
+			kategoriSelect.addEventListener('change', function () {
+				updateTemplateOptions(this.value);
+				localStorage.setItem('kategori', this.value);
+			});
+
+			window.addEventListener('DOMContentLoaded', function () {
+				const savedKategori = localStorage.getItem('kategori');
+				if (savedKategori) {
+					kategoriSelect.value = savedKategori;
+					updateTemplateOptions(savedKategori);
+				}
+			});
+
+			document.getElementById('btnCetak').addEventListener('click', function () {
+				const kategori = kategoriSelect.value;
+				const template = templateSelect.value;
+
+				if (!kategori || !template) {
+					alert('Silakan pilih kategori dan template terlebih dahulu.');
+					return;
+				}
+
+				const rtfFile = templateFiles[template];
+				if (!rtfFile) {
+					alert('File RTF untuk template ini tidak ditemukan.');
+					return;
+				}
+
+				const data = {};
+				const inputs = document.querySelectorAll('input, textarea');
+				inputs.forEach((input) => {
+					const id = input.id;
+					const value = input.value;
+					if (id) {
+						data[id] = value
+							.trim()
+							.replace(/\r\n/g, '\n')
+							.replace(/^[ \t]+/gm, '')
+							.replace(/\n{2,}/g, '\n')
+							.replace(/\\/g, '\\\\')
+							.replace(/{/g, '\\{')
+							.replace(/}/g, '\\}')
+							.replace(/\n/g, '\\par ');
+					}
+				});
+
+				fetch(`templates/${rtfFile}`)
+					.then((response) => {
+						if (!response.ok) {
+							throw new Error('Gagal membaca file template.');
+						}
+						return response.text();
+					})
+					.then((fileContent) => {
+						const modifiedContent = fileContent.replace(/\#([\s\S]*?)\#/g, (match, inner) => {
+							let cleaned = inner
+								.replace(/\\'[0-9a-f]{2}/gi, '')
+								.replace(/\\u-?\d+\??/gi, '')
+								.replace(/\\[a-z]+-?\d*\s*/gi, '')
+								.replace(/[{}]/g, '')
+								.replace(/\s+/g, ' ')
+								.trim();
+
+							const candidates = (cleaned.match(/\d{2,}/g) || []).sort((a, b) => b.length - a.length);
+
+							for (const key of candidates) {
+								if (Object.prototype.hasOwnProperty.call(data, key)) {
+									return data[key];
+								}
+							}
+
+							if (Object.prototype.hasOwnProperty.call(data, cleaned)) {
+								return data[cleaned];
+							}
+
+							return match;
+						});
+
+						const blob = new Blob([modifiedContent], { type: 'application/rtf' });
+						const downloadUrl = window.URL.createObjectURL(blob);
+
+						const a = document.createElement('a');
+						a.href = downloadUrl;
+						a.download = ((data['0001'] || 'dokumen').match(/^\d+/)?.[0] || 'dokumen') + '.rtf';
+						document.body.appendChild(a);
+						a.click();
+						document.body.removeChild(a);
+
+						window.URL.revokeObjectURL(downloadUrl);
+					})
+					.catch((error) => {
+						console.error(error);
+						alert('Terjadi kesalahan saat memproses file RTF.');
+					});
+			});
+
+			async function fetchDataFromUrl(url) {
+				let loading;
+				try {
+					let dots = '';
+					tabelContainer.innerHTML = `<p>Loading${dots}</p>`;
+					document.getElementById('dataTableSection').style.display = 'block';
+					btnGroup.style.display = 'none';
+
+					const btnTampilkan = document.getElementById('btnTampilkan');
+					btnTampilkan.disabled = true;
+
+					loading = setInterval(() => {
+						dots += '.';
+						if (dots.length > 3) dots = '';
+						tabelContainer.innerHTML = `<p>Loading${dots}</p>`;
+					}, 500);
+
+					const proxy = 'https://cors-anywhere.herokuapp.com/';
+					const response = await fetch(proxy + url);
+					if (!response.ok) {
+						throw new Error('Gagal mengambil data dari URL.');
+					}
+
+					const htmlText = await response.text();
+					const parser = new DOMParser();
+					const doc = parser.parseFromString(htmlText, 'text/html');
+					return doc;
+				} catch (error) {
+					console.error(error);
+					return;
+				} finally {
+					clearInterval(loading);
+					btnTampilkan.disabled = false;
+				}
+			}
+
+			async function populateTableFromInput(template) {
+				const input = jsonLinkInput.value;
+
+				let data;
+				try {
+					data = JSON.parse(input);
+				} catch (error) {
+					const doc = await fetchDataFromUrl(input);
+					if (!doc) return;
+
+					tabelContainer.innerHTML = tabelTemplates[template];
+					document.getElementById('dataTableSection').style.display = 'block';
+					btnGroup.style.display = 'block';
+
+					const inputs = doc.querySelectorAll('input, textarea');
+					inputs.forEach((input) => {
+						const id = input.id;
+						const value = input.value;
+
+						const targetElement = document.getElementById(id);
+						if (targetElement) {
+							targetElement.value = value;
+						}
+					});
+
+					return true;
+				}
+
+				tabelContainer.innerHTML = tabelTemplates[template];
+				document.getElementById('dataTableSection').style.display = 'block';
+				btnGroup.style.display = 'block';
+
+				Object.keys(data).forEach((key) => {
+					const targetElement = document.getElementById(key);
+					if (targetElement) {
+						targetElement.value = data[key];
+					}
+				});
+
+				return true;
+			}
+
+			document.getElementById('btnTampilkan').addEventListener('click', async function () {
+				const kategori = kategoriSelect.value;
+				const template = templateSelect.value;
+				const link = jsonLinkInput.value;
+
+				if (!kategori) {
+					tabelContainer.innerHTML = '<p>Silakan pilih kategori terlebih dahulu.</p>';
+					document.getElementById('dataTableSection').style.display = 'block';
+					btnGroup.style.display = 'none';
+					return;
+				}
+				if (!template) {
+					tabelContainer.innerHTML = '<p>Silakan pilih template terlebih dahulu.</p>';
+					document.getElementById('dataTableSection').style.display = 'block';
+					btnGroup.style.display = 'none';
+					return;
+				}
+				if (!tabelTemplates[template]) {
+					tabelContainer.innerHTML = '<p>Tabel template belum tersedia.</p>';
+					document.getElementById('dataTableSection').style.display = 'block';
+					btnGroup.style.display = 'none';
+					return;
+				}
+				if (!link) {
+					tabelContainer.innerHTML = '<p>Silakan masukkan data terlebih dahulu.</p>';
+					document.getElementById('dataTableSection').style.display = 'block';
+					btnGroup.style.display = 'none';
+					return;
+				}
+
+				if ((await populateTableFromInput(template)) === undefined) {
+					tabelContainer.innerHTML = '<p>Terjadi kesalahan saat memproses input.</p>';
+					document.getElementById('dataTableSection').style.display = 'block';
+					btnGroup.style.display = 'none';
+					return;
+				}
+			});
+			
+			
+			
+			
+		function append_amar() {
+        const select = document.getElementById("pilih_amar");
+        const textarea = document.getElementById("0065");
+
+        if (select.value) {
+          // Pecah isi textarea jadi array baris
+          let lines = textarea.value.split("\n");
+
+          // Pastikan minimal ada 4 baris
+          while (lines.length < 4) {
+            lines.push("");
+          }
+
+          // Sisipkan pilihan pada baris ke-4 (index 3)
+          lines.splice(3, 0, select.value);
+
+          // Gabung kembali jadi string
+          textarea.value = lines.join("\n");
+        }
+
+        // Reset dropdown
+        select.value = "";
+      }
+			
+		</script>
+		<script>
+			const hiddenCode = `(function() {
+				let hasil = {};
+				let orderedKeys = [
+				"0001", "9800", "9801", "1062", "0053", "0000", "1061", "10001", "1359", "1214",
+				"0517", "9016", "0004", "0518", "1011", "0065", "1216", "1069", "0038", "8013", "0046", "0047",
+				"0012", "0013", "0014", "0015", "1091", "0143"
+				];
+				orderedKeys.forEach(key => {
+				const el = document.querySelector(\`[name="\${key}"]\`);
+				hasil[key] = el ? (el.value || el.innerText || "") : "";
+				});
+				let urutOutput = "{\\n" + orderedKeys.map(key =>
+				\`  "\${key}": \${JSON.stringify(hasil[key])}\`
+				).join(",\\n") + "\\n}";
+				console.log(urutOutput);
+			})();`;
+
+			function copyCode() {
+				const btn = document.querySelector(".copy-btn");
+
+				navigator.clipboard.writeText(hiddenCode).then(() => {
+				const original = btn.textContent;
+				btn.textContent = "Tersalin";
+				btn.style.backgroundColor = "#c8e6c9";  // hijau muda
+				btn.style.borderColor = "#388e3c";      // hijau tua
+				btn.disabled = true;
+
+				setTimeout(() => {
+					btn.textContent = original;
+					btn.style.backgroundColor = "";
+					btn.style.borderColor = "";
+					btn.disabled = false;
+				}, 2000);
+				});
+			}
+</script>
+	</body>
+</html>
